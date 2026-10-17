@@ -1,0 +1,16 @@
+# Ignore virtual environments
+venv/
+.venv/
+env/
+
+# Ignore API keys and secrets
+.env
+backend/.env
+
+# Ignore Python cache and local databases
+__pycache__/
+*.pyc
+chroma_db/
+backend/chroma_db/
+temp_*
+test_key.py
