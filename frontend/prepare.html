@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JavaTutor | Prepare</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg-base: #0d1117; --bg-surface: #161b22; --border-color: #30363d; --accent-orange: #f8981d; --text-main: #c9d1d9; }
+        body { background: var(--bg-base); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; }
+        header { background: var(--bg-surface); border-bottom: 1px solid var(--border-color); padding: 1rem 3rem; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.25rem; font-weight: 700; color: #fff; } .logo span { color: var(--accent-orange); }
+        .container { max-width: 1000px; margin: 3rem auto; padding: 0 1.5rem; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+        .module-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem; cursor: pointer; transition: 0.2s; text-decoration: none; color: inherit; display: block; }
+        .module-card:hover { border-color: var(--accent-orange); transform: translateY(-3px); }
+        .module-icon { font-size: 2.5rem; color: var(--accent-orange); margin-bottom: 1rem; }
+        .module-title { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+        .module-desc { font-size: 0.9rem; color: #8b949e; line-height: 1.5; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo"><i class="fa-solid fa-code"></i> Java<span>Tutor</span></div>
+        <div id="userDisplay" style="font-size: 0.9rem; color: #8b949e;"></div>
+    </header>
+    <div class="container">
+        <h1>Prepare By Topics</h1>
+        <p style="color: #8b949e; margin-bottom: 2rem;">Select a language module to access algorithmic challenges and practice your problem solving.</p>
+        
+        <div class="card-grid">
+            <!-- Active Java Module -->
+            <a href="problems.html" class="module-card">
+                <div class="module-icon"><i class="fa-brands fa-java"></i></div>
+                <div class="module-title">Java</div>
+                <div class="module-desc">Practice core syntax, algorithmic loops, arrays, OOP, collections, and competitive programming in Java.</div>
+            </a>
+
+            <!-- Disabled Placeholders for Future Modules -->
+            <div class="module-card" style="opacity: 0.4; cursor: not-allowed;">
+                <div class="module-icon" style="color: #58a6ff;"><i class="fa-brands fa-python"></i></div>
+                <div class="module-title">Python (Coming Soon)</div>
+                <div class="module-desc">Data structures, automation, and algorithmic challenges in Python 3.</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const user = localStorage.getItem("javatutor_user");
+        if(!localStorage.getItem("javatutor_token")) window.location.href = "index.html";
+        document.getElementById('userDisplay').textContent = `Logged in as: ${user}`;
+    </script>
+</body>
+</html>

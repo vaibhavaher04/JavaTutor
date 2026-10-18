@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaTutor | IDE & AI Mentor</title>
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js for clean Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header class="hr-header">
+        <div class="hr-header-left">
+            <div class="logo"><i class="fa-solid fa-code"></i> Java<span>Tutor</span></div>
+            <span class="breadcrumb-sep">|</span>
+            <span class="breadcrumb-path">
+                <a href="prepare.html" style="color: var(--text-muted); text-decoration: none;">Prepare</a> 
+                <i class="fa-solid fa-chevron-right"></i> 
+                <a href="problems.html" style="color: var(--text-muted); text-decoration: none;">Java</a> 
+                <i class="fa-solid fa-chevron-right"></i> 
+                <select id="problemSelect" class="breadcrumb-select" onchange="switchProblemFromDropdown()"></select>
+            </span>
+        </div>
+        <div class="hr-header-right">
+            <button class="btn-fullscreen" onclick="toggleFullScreen()"><i class="fa-solid fa-expand"></i> Full Screen</button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="hr-workspace">
+        
+        <!-- Left Vertical Navigation Tabs -->
+        <div class="hr-vertical-tabs">
+            <button id="tabProblem" class="v-tab active" title="Problem Description" onclick="showPanel('problem')">
+                <i class="fa-solid fa-book-open"></i><span>Problem</span>
+            </button>
+            <button id="tabAI" class="v-tab" title="AI Mentor" onclick="showPanel('ai')">
+                <i class="fa-solid fa-robot" style="color: var(--accent-orange);"></i><span>AI Help</span>
+            </button>
+        </div>
+
+        <!-- Left Panel: Problem Statement View -->
+        <div id="panelProblem" class="hr-problem-panel">
+            <div class="problem-content-wrap">
+                <div class="problem-header-row">
+                    <h1 id="probTitle" class="problem-title">Loading...</h1>
+                    <span id="probDifficulty" class="difficulty-badge Easy">Easy</span>
+                </div>
+                <div id="probDesc" class="problem-desc">Loading problem description...</div>
+                
+                <div class="io-section">
+                    <h3>Input Format</h3>
+                    <p id="probInputFormat">Standard input stream via Scanner.</p>
+                    
+                    <h3>Output Format</h3>
+                    <p id="probOutputFormat">Standard output stream via System.out.println.</p>
+
+                    <h3>Sample Example</h3>
+                    <pre class="example-box" id="probExample"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Left Panel: AI Mentor Full View -->
+        <div id="panelAI" class="hr-problem-panel" style="display: none; padding: 0;">
+            <div class="ai-panel-container">
+                <div class="ai-panel-header">
+                    <div>
+                        <h2 style="font-size: 1.15rem; color: #fff;"><i class="fa-solid fa-robot" style="color: var(--accent-orange);"></i> AI Java Mentor</h2>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Type <code>/</code> for commands or <code>/problem</code> to ask with code snapshot</span>
+                    </div>
+                    <button class="btn-tag-pill" onclick="insertConnector()">+ /problem</button>
+                </div>
+                
+                <div class="ai-panel-messages" id="aiChatMessages">
+                    <div class="ai-bubble">
+                        <p style="margin-bottom: 0.5rem; font-weight: 600;">Hello! I am your Java Mentor.</p>
+                        <p style="margin-bottom: 0.5rem;">• Ask general questions directly: <em>"How does HashMap handle collisions?"</em></p>
+                        <p>• Type <strong>/problem</strong> to link the current question and your current editor code so I can spot mistakes and provide pseudocode.</p>
+                    </div>
+                </div>
+
+                <!-- Input area with autocomplete popup -->
+                <div class="ai-panel-input-container">
+                    <!-- Autocomplete dropdown for slash commands -->
+                    <div id="slashDropdown" class="slash-autocomplete" style="display: none;">
+                        <div class="slash-item" onclick="selectSlashCommand('/problem')">
+                            <span class="slash-name"><i class="fa-solid fa-code"></i> /problem</span>
+                            <span class="slash-desc">Link current problem & code editor snapshot</span>
+                        </div>
+                    </div>
+
+                    <textarea id="aiChatInput" rows="2" 
+                        placeholder="Ask a question... (type / for commands)" 
+                        oninput="handleAIInputChange()" 
+                        onkeydown="handleAIInputKey(event)"></textarea>
+                    <button class="btn-ai-submit" onclick="sendAIMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Workspace: Code Editor & Bottom Console -->
+        <div class="hr-editor-workspace">
+            
+            <div class="editor-toolbar">
+                <div class="toolbar-left">
+                    <span style="color: var(--accent-orange); font-weight: 600;"><i class="fa-brands fa-java"></i> Main.java</span>
+                </div>
+                <div class="toolbar-right">
+                    <span class="editor-info">Language: <strong>Java (OpenJDK 17)</strong></span>
+                </div>
+            </div>
+
+            <div class="code-editor-container">
+                <div id="lineNumbers" class="line-numbers">1</div>
+                <textarea id="codeEditor" class="code-editor" spellcheck="false" oninput="updateLineNumbers()" onscroll="syncScroll()"></textarea>
+            </div>
+
+            <div class="editor-bottom-bar">
+                <div class="bottom-left-options">
+                    <label class="custom-checkbox">
+                        <input type="checkbox" id="customInputToggle" onchange="toggleCustomInput()"> Test against custom input
+                    </label>
+                </div>
+                <div class="bottom-actions">
+                    <button class="btn btn-run" onclick="executeCode(false)"><i class="fa-solid fa-play"></i> Run Code</button>
+                    <button class="btn btn-submit" onclick="executeCode(true)"><i class="fa-solid fa-cloud-arrow-up"></i> Submit Code</button>
+                </div>
+            </div>
+
+            <div id="customInputWrapper" class="custom-input-wrapper" style="display: none;">
+                <label>Custom Test Input (stdin):</label>
+                <textarea id="customStdin" placeholder="Enter input values here..."></textarea>
+            </div>
+
+            <div id="resultsDrawer" class="results-drawer" style="display: none;">
+                <div class="results-drawer-header">
+                    <span id="resultStatusHeading" class="result-heading-success">Result</span>
+                    <button class="close-drawer" onclick="closeResults()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="results-drawer-body" id="resultsBody"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -7,3 +7,8 @@ langchain-google-genai
 langchain-community
 langchain-core
 python-dotenv
+
+asyncpg
+passlib[bcrypt]
+pyjwt
+email-validator

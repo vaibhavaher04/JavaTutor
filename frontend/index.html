@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JavaTutor | Master Java Programming</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg-base: #0d1117; --bg-surface: #161b22; --border-color: #30363d; --accent-orange: #f8981d; --text-main: #c9d1d9; --text-muted: #8b949e; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter', sans-serif; }
+        body { background: var(--bg-base); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: var(--bg-surface); border-bottom: 1px solid var(--border-color); padding: 1rem 3rem; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.4rem; font-weight: 800; color: #fff; }
+        .logo span { color: var(--accent-orange); }
+        .btn-auth { background: var(--accent-orange); color: #fff; padding: 0.5rem 1.25rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        
+        .hero { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem; }
+        .hero h1 { font-size: 3.5rem; color: #fff; max-width: 800px; margin-bottom: 1.5rem; line-height: 1.2; }
+        .hero p { font-size: 1.2rem; color: var(--text-muted); max-width: 650px; margin-bottom: 2rem; line-height: 1.6; }
+        .hero .btn-cta { background: #238636; color: #fff; padding: 0.8rem 2rem; border-radius: 8px; font-size: 1.1rem; font-weight: 700; border: none; cursor: pointer; text-decoration: none; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal { background: var(--bg-surface); border: 1px solid var(--border-color); width: 400px; border-radius: 10px; padding: 2rem; }
+        .modal h2 { margin-bottom: 1.5rem; color: #fff; }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--text-muted); }
+        .form-group input { width: 100%; padding: 0.6rem; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; }
+        .modal-actions { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1.5rem; }
+        .toggle-auth { font-size: 0.85rem; color: var(--accent-orange); cursor: pointer; text-align: center; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo"><i class="fa-solid fa-code"></i> Java<span>Tutor</span></div>
+        <div id="authNav">
+            <button class="btn-auth" onclick="openModal('login')">Log In</button>
+        </div>
+    </header>
+
+    <div class="hero">
+        <h1>Accelerate Your Java Mastery With AI Mentorship</h1>
+        <p>HackerRank-style algorithmic challenges combined with a strict AI Tutor that builds your problem-solving capabilities without giving away answers.</p>
+        <button class="btn-cta" onclick="handleGetStarted()">Get Started Now <i class="fa-solid fa-arrow-right"></i></button>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal-overlay">
+        <div class="modal">
+            <h2 id="modalTitle">Sign In to JavaTutor</h2>
+            <div id="emailGroup" class="form-group" style="display: none;">
+                <label>Email Address</label>
+                <input type="email" id="authEmail" placeholder="student@example.com">
+            </div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="authUsername" placeholder="Username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="authPassword" placeholder="••••••••">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-auth" id="submitAuthBtn" onclick="submitAuth()">Log In</button>
+                <span class="toggle-auth" id="toggleAuthMode" onclick="toggleMode()">Don't have an account? Sign Up</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isSignup = false;
+
+        function openModal(mode) {
+            isSignup = (mode === 'signup');
+            updateModalUI();
+            document.getElementById('authModal').style.display = 'flex';
+        }
+
+        function toggleMode() {
+            isSignup = !isSignup;
+            updateModalUI();
+        }
+
+        function updateModalUI() {
+            document.getElementById('modalTitle').textContent = isSignup ? "Create JavaTutor Account" : "Sign In to JavaTutor";
+            document.getElementById('emailGroup').style.display = isSignup ? "block" : "none";
+            document.getElementById('submitAuthBtn').textContent = isSignup ? "Sign Up" : "Log In";
+            document.getElementById('toggleAuthMode').textContent = isSignup ? "Already registered? Log In" : "Don't have an account? Sign Up";
+        }
+
+        function handleGetStarted() {
+            const token = localStorage.getItem("javatutor_token");
+            if(token) window.location.href = "prepare.html";
+            else openModal('signup');
+        }
+
+        async function submitAuth() {
+            const username = document.getElementById('authUsername').value;
+            const password = document.getElementById('authPassword').value;
+            const email = document.getElementById('authEmail').value;
+
+            try {
+                let res;
+                if(isSignup) {
+                    res = await fetch("http://localhost:8000/api/auth/register", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, email, password })
+                    });
+                } else {
+                    const formData = new URLSearchParams();
+                    formData.append('username', username);
+                    formData.append('password', password);
+                    res = await fetch("http://localhost:8000/api/auth/login", {
+                        method: "POST",
+                        body: formData
+                    });
+                }
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || "Authentication Failed");
+                
+                localStorage.setItem("javatutor_token", data.token || data.access_token);
+                localStorage.setItem("javatutor_user", data.username);
+                window.location.href = "prepare.html";
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        window.onclick = function(e) {
+            if(e.target === document.getElementById('authModal')) document.getElementById('authModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
