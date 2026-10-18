@@ -54,6 +54,8 @@ MCA_Project_SEM_3/
 │   ├── workspace.html        # HackerRank-style coding workspace & AI drawer
 │   ├── style.css             # Developer dark theme stylesheet
 │   └── script.js             # Client-side editor engine, Judge0 integration, AI connector
+├── .gitignore
+├── requirements.txt
 └── README.md
 ```
 
@@ -184,7 +186,7 @@ MCA_Project_SEM_3/
 
 2. **Install all required packages**:
    ```powershell
-   pip install fastapi uvicorn asyncpg bcrypt pyjwt python-dotenv email-validator langchain-google-genai langchain-core
+   pip install -r reuirements.txt
    ```
 
 3. **Configure Environment Variables (`backend/.env`)**:
@@ -243,4 +245,4 @@ MCA_Project_SEM_3/
 
 ## 🛡️ License
 
-Developed as part of the MCA Semester 3 Project curriculum. Available for academic and personal learning purposes.
+Developed as part of the MCA Semester Project. Available for academic and personal learning purposes.
