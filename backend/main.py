@@ -131,14 +131,64 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     token = create_access_token({"user_id": user["id"], "username": user["username"]})
     return {"access_token": token, "token_type": "bearer", "username": user["username"]}
 
-# --- PROBLEMS ENDPOINTS ---
+# --- USER PROFILE & STATS ENDPOINT ---
+@app.get("/api/user/profile")
+async def get_user_profile(user_id: int = Depends(get_current_user)):
+    user = await app.state.db.fetchrow(
+        "SELECT id, username, email, created_at FROM users WHERE id = $1", user_id
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Count distinct solved problems
+    solved_count = await app.state.db.fetchval(
+        """SELECT COUNT(DISTINCT problem_id) FROM submissions 
+           WHERE user_id = $1 AND status = 'Accepted'""", 
+        user_id
+    )
+
+    # Total submissions
+    total_submissions = await app.state.db.fetchval(
+        "SELECT COUNT(*) FROM submissions WHERE user_id = $1", user_id
+    )
+
+    return {
+        "username": user["username"],
+        "email": user["email"],
+        "joined": user["created_at"].strftime("%b %Y") if user["created_at"] else "2026",
+        "solved_count": solved_count or 0,
+        "total_submissions": total_submissions or 0,
+        "languages": [{"name": "Java (OpenJDK 17)", "solved": solved_count or 0}]
+    }
+
+# --- UPDATED PROBLEMS LIST WITH SOLVED STATUS ---
 @app.get("/api/problems")
-async def get_problems(difficulty: Optional[str] = None):
-    query = "SELECT id, title, difficulty, description FROM problems"
+async def get_problems(difficulty: Optional[str] = None, token: Optional[str] = None):
+    # Optional authentication extraction for solved state
+    user_id = None
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("user_id")
+        except Exception:
+            pass
+
+    query = """
+        SELECT p.id, p.title, p.difficulty, p.description,
+               CASE WHEN EXISTS (
+                   SELECT 1 FROM submissions s 
+                   WHERE s.problem_id = p.id AND s.user_id = $1 AND s.status = 'Accepted'
+               ) THEN TRUE ELSE FALSE END as is_solved
+        FROM problems p
+    """
+    params = [user_id]
+
     if difficulty and difficulty != "All":
-        query += f" WHERE difficulty = '{difficulty}'"
-    query += " ORDER BY id ASC"
-    rows = await app.state.db.fetch(query)
+        query += " WHERE p.difficulty = $2"
+        params.append(difficulty)
+
+    query += " ORDER BY p.id ASC"
+    rows = await app.state.db.fetch(query, *params)
     return [dict(r) for r in rows]
 
 @app.get("/api/problems/{problem_id}")
