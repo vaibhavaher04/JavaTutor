@@ -55,7 +55,7 @@ body {
     gap: 0.4rem;
 }
 
-.logo span {
+.logo .accent {
     color: var(--accent-orange);
 }
 
@@ -654,4 +654,146 @@ pre.example-box {
 .slash-desc {
     color: var(--text-muted);
     font-size: 0.75rem;
+}
+
+/* Fullscreen Icon Transition */
+.btn-fullscreen i {
+    transition: transform 0.2s ease;
+}
+
+/* User Profile Avatar in Header */
+.user-profile-widget {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+}
+
+.user-avatar-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f8981d, #d29922);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: 2px solid #30363d;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+.user-avatar-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Profile Dropdown / Modal */
+.profile-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.profile-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 360px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+}
+
+.profile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.profile-card-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f8981d, #238636);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.profile-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.stat-box {
+    background: var(--bg-base);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+}
+.stat-box .num { font-size: 1.3rem; font-weight: 700; color: #3fb950; }
+.stat-box .lbl { font-size: 0.75rem; color: var(--text-muted); }
+
+.btn-logout {
+    width: 100%;
+    background: rgba(218, 54, 51, 0.15);
+    color: var(--error-red);
+    border: 1px solid var(--error-red);
+    padding: 0.6rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.btn-logout:hover {
+    background: var(--error-red);
+    color: #fff;
+}
+
+/* Solved Badges for Problems List */
+.status-badge-solved {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #3fb950;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.status-badge-unsolved {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Prism / Code Syntax Highlighting Layering */
+.editor-wrapper {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+}
+
+#codeEditor {
+    tab-size: 4;
+    -moz-tab-size: 4;
+    white-space: pre;
+    font-family: 'Fira Code', monospace;
 }

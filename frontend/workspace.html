@@ -4,10 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JavaTutor | IDE & AI Mentor</title>
-    <!-- Google Fonts & FontAwesome -->
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Marked.js for clean Markdown rendering -->
+    
+    <!-- CodeMirror or Prism for syntax coloring & Markdown -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -16,7 +20,8 @@
     <!-- Top Navigation Bar -->
     <header class="hr-header">
         <div class="hr-header-left">
-            <div class="logo"><i class="fa-solid fa-code"></i> Java<span>Tutor</span></div>
+            <!-- Updated -->
+            <div class="logo"><i class="fa-solid fa-code"></i><span>Java<span class="accent">Tutor</span></span></div>
             <span class="breadcrumb-sep">|</span>
             <span class="breadcrumb-path">
                 <a href="prepare.html" style="color: var(--text-muted); text-decoration: none;">Prepare</a> 
@@ -26,8 +31,11 @@
                 <select id="problemSelect" class="breadcrumb-select" onchange="switchProblemFromDropdown()"></select>
             </span>
         </div>
-        <div class="hr-header-right">
-            <button class="btn-fullscreen" onclick="toggleFullScreen()"><i class="fa-solid fa-expand"></i> Full Screen</button>
+        <div class="hr-header-right" style="display: flex; gap: 1rem; align-items: center;">
+            <button id="btnFullscreen" class="btn-fullscreen" onclick="toggleFullScreen()">
+                <i id="fullscreenIcon" class="fa-solid fa-expand"></i> <span>Full Screen</span>
+            </button>
+            <div id="userProfileNav"></div>
         </div>
     </header>
 
@@ -72,7 +80,7 @@
                 <div class="ai-panel-header">
                     <div>
                         <h2 style="font-size: 1.15rem; color: #fff;"><i class="fa-solid fa-robot" style="color: var(--accent-orange);"></i> AI Java Mentor</h2>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">Type <code>/</code> for commands or <code>/problem</code> to ask with code snapshot</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Type <code>/problem</code> to link context and current code</span>
                     </div>
                     <button class="btn-tag-pill" onclick="insertConnector()">+ /problem</button>
                 </div>
@@ -81,13 +89,11 @@
                     <div class="ai-bubble">
                         <p style="margin-bottom: 0.5rem; font-weight: 600;">Hello! I am your Java Mentor.</p>
                         <p style="margin-bottom: 0.5rem;">• Ask general questions directly: <em>"How does HashMap handle collisions?"</em></p>
-                        <p>• Type <strong>/problem</strong> to link the current question and your current editor code so I can spot mistakes and provide pseudocode.</p>
+                        <p>• Type <strong>/problem</strong> to link the current question and your code editor snapshot.</p>
                     </div>
                 </div>
 
-                <!-- Input area with autocomplete popup -->
                 <div class="ai-panel-input-container">
-                    <!-- Autocomplete dropdown for slash commands -->
                     <div id="slashDropdown" class="slash-autocomplete" style="display: none;">
                         <div class="slash-item" onclick="selectSlashCommand('/problem')">
                             <span class="slash-name"><i class="fa-solid fa-code"></i> /problem</span>
@@ -116,9 +122,13 @@
                 </div>
             </div>
 
+            <!-- Code Editor Container with Tab Key & Line Numbers -->
             <div class="code-editor-container">
                 <div id="lineNumbers" class="line-numbers">1</div>
-                <textarea id="codeEditor" class="code-editor" spellcheck="false" oninput="updateLineNumbers()" onscroll="syncScroll()"></textarea>
+                <textarea id="codeEditor" class="code-editor" spellcheck="false" 
+                    onkeydown="handleEditorTab(event)" 
+                    oninput="updateLineNumbers()" 
+                    onscroll="syncScroll()"></textarea>
             </div>
 
             <div class="editor-bottom-bar">
@@ -133,11 +143,13 @@
                 </div>
             </div>
 
+            <!-- Custom Input Drawer -->
             <div id="customInputWrapper" class="custom-input-wrapper" style="display: none;">
                 <label>Custom Test Input (stdin):</label>
-                <textarea id="customStdin" placeholder="Enter input values here..."></textarea>
+                <textarea id="customStdin" placeholder="Enter custom test input here..."></textarea>
             </div>
 
+            <!-- HackerRank Style Test Results Drawer -->
             <div id="resultsDrawer" class="results-drawer" style="display: none;">
                 <div class="results-drawer-header">
                     <span id="resultStatusHeading" class="result-heading-success">Result</span>
@@ -146,6 +158,33 @@
                 <div class="results-drawer-body" id="resultsBody"></div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- User Profile & Stats Modal -->
+    <div id="profileModal" class="profile-modal-overlay" onclick="closeProfileModal(event)">
+        <div class="profile-card" onclick="event.stopPropagation()">
+            <div class="profile-card-header">
+                <div class="profile-card-avatar" id="modalAvatar">V</div>
+                <div>
+                    <h3 id="modalUsername" style="color: #fff; margin-bottom: 0.2rem;">Username</h3>
+                    <p id="modalEmail" style="color: var(--text-muted); font-size: 0.8rem;">user@example.com</p>
+                </div>
+            </div>
+            <div class="profile-stat-grid">
+                <div class="stat-box">
+                    <div class="num" id="modalSolved">0</div>
+                    <div class="lbl">Problems Solved</div>
+                </div>
+                <div class="stat-box">
+                    <div class="num" id="modalSubmissions">0</div>
+                    <div class="lbl">Total Submissions</div>
+                </div>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                <strong>Primary Language:</strong> Java (OpenJDK 17)
+            </div>
+            <button class="btn-logout" onclick="logoutUser()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out</button>
         </div>
     </div>
 

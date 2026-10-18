@@ -130,6 +130,14 @@
         window.onclick = function(e) {
             if(e.target === document.getElementById('authModal')) document.getElementById('authModal').style.display = 'none';
         }
+
+        window.onload = function() {
+            const token = localStorage.getItem("javatutor_token");
+            if (token) {
+                // Active session exists; automatically redirect to modules
+                window.location.href = "prepare.html";
+            }
+        };
     </script>
 </body>
 </html>

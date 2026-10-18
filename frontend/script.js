@@ -1,5 +1,6 @@
 let currentProblem = null;
 
+// Normalize escaped newlines from DB
 function normalizeText(text) {
     if (!text) return "";
     return text
@@ -8,6 +9,101 @@ function normalizeText(text) {
         .replace(/\\t/g, '    ');
 }
 
+// 1. Tab Key Support in Code Editor
+function handleEditorTab(e) {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const editor = e.target;
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+
+        // Insert 4 spaces
+        editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + 4;
+        updateLineNumbers();
+    }
+}
+
+// 2. Fullscreen Toggle with Icon Flip
+function toggleFullScreen() {
+    const icon = document.getElementById('fullscreenIcon');
+    const label = document.querySelector('#btnFullscreen span');
+
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+            icon.className = "fa-solid fa-compress";
+            if (label) label.textContent = "Exit Full Screen";
+        }).catch(err => alert("Fullscreen error: " + err.message));
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().then(() => {
+                icon.className = "fa-solid fa-expand";
+                if (label) label.textContent = "Full Screen";
+            });
+        }
+    }
+}
+
+// Listen to OS-level fullscreen exit (e.g. user hits ESC key)
+document.addEventListener('fullscreenchange', () => {
+    const icon = document.getElementById('fullscreenIcon');
+    const label = document.querySelector('#btnFullscreen span');
+    if (!document.fullscreenElement && icon) {
+        icon.className = "fa-solid fa-expand";
+        if (label) label.textContent = "Full Screen";
+    }
+});
+
+// 3. User Profile & Navbar Session Management
+async function initNavbarSession() {
+    const token = localStorage.getItem("javatutor_token");
+    const container = document.getElementById("userProfileNav");
+    if (!container) return;
+
+    if (!token) {
+        container.innerHTML = `<a href="index.html" class="btn btn-run" style="padding: 0.35rem 0.8rem; text-decoration: none;">Log In</a>`;
+        return;
+    }
+
+    try {
+        const res = await fetch("http://localhost:8000/api/user/profile", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error("Invalid token");
+        const data = await res.json();
+
+        const initial = data.username.charAt(0).toUpperCase();
+        container.innerHTML = `
+            <div class="user-avatar-btn" title="View Profile" onclick="openProfileModal('${data.username}', '${data.email}', ${data.solved_count}, ${data.total_submissions})">
+                ${initial}
+            </div>
+        `;
+    } catch {
+        localStorage.removeItem("javatutor_token");
+        container.innerHTML = `<a href="index.html" class="btn btn-run" style="padding: 0.35rem 0.8rem; text-decoration: none;">Log In</a>`;
+    }
+}
+
+function openProfileModal(username, email, solved, submissions) {
+    document.getElementById("modalUsername").textContent = username;
+    document.getElementById("modalEmail").textContent = email;
+    document.getElementById("modalSolved").textContent = solved;
+    document.getElementById("modalSubmissions").textContent = submissions;
+    document.getElementById("modalAvatar").textContent = username.charAt(0).toUpperCase();
+    document.getElementById("profileModal").style.display = "flex";
+}
+
+function closeProfileModal(e) {
+    document.getElementById("profileModal").style.display = "none";
+}
+
+function logoutUser() {
+    localStorage.removeItem("javatutor_token");
+    localStorage.removeItem("javatutor_user");
+    window.location.href = "index.html";
+}
+
+// 4. Panel Switching & Slash Command Autocomplete
 function showPanel(panelName) {
     const tabProblem = document.getElementById('tabProblem');
     const tabAI = document.getElementById('tabAI');
@@ -28,13 +124,10 @@ function showPanel(panelName) {
     }
 }
 
-// Show slash menu only when actively typing the command keyword
 function handleAIInputChange() {
     const input = document.getElementById('aiChatInput');
     const dropdown = document.getElementById('slashDropdown');
     const val = input.value;
-
-    // Show menu only if user typed '/' or is typing a command, but hide once a space is entered
     if (val.startsWith("/") && !val.includes(" ")) {
         dropdown.style.display = 'block';
     } else {
@@ -44,7 +137,6 @@ function handleAIInputChange() {
 
 function selectSlashCommand(cmd) {
     const input = document.getElementById('aiChatInput');
-    // Replace the slash token with command followed by a space
     input.value = `${cmd} `;
     document.getElementById('slashDropdown').style.display = 'none';
     input.focus();
@@ -54,11 +146,8 @@ function insertConnector() {
     selectSlashCommand('/problem');
 }
 
-// Handle Enter and Tab keys cleanly
 function handleAIInputKey(e) {
     const dropdown = document.getElementById('slashDropdown');
-
-    // Only intercept Enter/Tab when the dropdown is actually visible
     if (dropdown && dropdown.style.display === 'block') {
         if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();
@@ -70,53 +159,245 @@ function handleAIInputKey(e) {
             return;
         }
     }
-
-    // Normal Enter submits the message; Shift+Enter creates a new line
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         sendAIMessage();
     }
 }
 
+// 5. Safe Base64 Helpers
+function safeDecode(base64Str) {
+    if (!base64Str) return "";
+    try {
+        return decodeURIComponent(escape(window.atob(base64Str)));
+    } catch {
+        try { return window.atob(base64Str); } catch { return base64Str; }
+    }
+}
+
+function safeEncode(str) {
+    return btoa(unescape(encodeURIComponent(str || "")));
+}
+
+// 6. Code Execution (With Custom Input Fix & Submission Recording)
+async function executeCode(isSubmit) {
+    if (!currentProblem) return;
+
+    const code = document.getElementById('codeEditor').value;
+    const resultsDrawer = document.getElementById('resultsDrawer');
+    const resultsBody = document.getElementById('resultsBody');
+    const statusHeading = document.getElementById('resultStatusHeading');
+    const useCustom = document.getElementById('customInputToggle').checked;
+
+    const defaultTestCase = currentProblem.test_cases && currentProblem.test_cases.length > 0 
+        ? currentProblem.test_cases[0] 
+        : { stdin: "", expected_output: "" };
+
+    // Fix: Properly handle custom input vs default problem test input
+    let testInput = "";
+    if (useCustom) {
+        testInput = document.getElementById('customStdin').value;
+    } else {
+        testInput = normalizeText(defaultTestCase.stdin);
+    }
+    const expectedOutput = normalizeText(defaultTestCase.expected_output).trim();
+
+    resultsDrawer.style.display = 'flex';
+    statusHeading.className = "result-heading-success";
+    statusHeading.textContent = "Compiling and executing via Judge0...";
+    resultsBody.innerHTML = `<div style="color: var(--text-muted); padding: 1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Sandboxed compilation in progress...</div>`;
+
+    const payload = {
+        source_code: safeEncode(code),
+        language_id: 91, // OpenJDK 17
+        stdin: safeEncode(testInput)
+    };
+
+    if (isSubmit && !useCustom) {
+        payload.expected_output = safeEncode(expectedOutput);
+    }
+
+    try {
+        const response = await fetch("https://ce.judge0.com/submissions?wait=true&base64_encoded=true", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        // 1. Compilation Error
+        if (result.compile_output) {
+            const errText = safeDecode(result.compile_output);
+            statusHeading.className = "result-heading-error";
+            statusHeading.textContent = "Compilation Error";
+            resultsBody.innerHTML = `
+                <div class="test-case-card" style="border-color: var(--error-red);">
+                    <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
+                        <span><i class="fa-solid fa-circle-xmark"></i> Syntax / Compile Error</span>
+                    </div>
+                    <div class="test-case-body" style="grid-template-columns: 1fr;">
+                        <div class="io-block">
+                            <label>Compiler Message:</label>
+                            <div class="io-output-box" style="color: #f85149; white-space: pre-wrap;">${errText}</div>
+                        </div>
+                    </div>
+                </div>`;
+            if (isSubmit) recordSubmission("Compilation Error", result.time, result.memory);
+            return;
+        }
+
+        // 2. Runtime Error
+        if (result.stderr) {
+            const errText = safeDecode(result.stderr);
+            statusHeading.className = "result-heading-error";
+            statusHeading.textContent = "Runtime Error / Exception";
+            resultsBody.innerHTML = `
+                <div class="test-case-card" style="border-color: var(--error-red);">
+                    <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
+                        <span><i class="fa-solid fa-triangle-exclamation"></i> Runtime Exception</span>
+                    </div>
+                    <div class="test-case-body" style="grid-template-columns: 1fr;">
+                        <div class="io-block">
+                            <label>Stack Trace:</label>
+                            <div class="io-output-box" style="color: #f85149; white-space: pre-wrap;">${errText}</div>
+                        </div>
+                    </div>
+                </div>`;
+            if (isSubmit) recordSubmission("Runtime Error", result.time, result.memory);
+            return;
+        }
+
+        const stdout = result.stdout ? safeDecode(result.stdout).trim() : "";
+
+        if (isSubmit && !useCustom) {
+            const isMatch = (stdout === expectedOutput) || (result.status && result.status.id === 3);
+
+            if (isMatch) {
+                statusHeading.className = "result-heading-success";
+                statusHeading.textContent = "Congratulations! You solved this challenge.";
+                resultsBody.innerHTML = `
+                    <div class="test-case-card" style="border-color: var(--success-green);">
+                        <div class="test-case-card-header" style="background: var(--success-bg); color: #3fb950;">
+                            <span><i class="fa-solid fa-circle-check"></i> Test Case 0 - PASSED</span>
+                            <span>Time: ${result.time || 0}s</span>
+                        </div>
+                        <div class="test-case-body">
+                            <div class="io-block">
+                                <label>Your Output (stdout)</label>
+                                <div class="io-output-box">${stdout}</div>
+                            </div>
+                            <div class="io-block">
+                                <label>Expected Output</label>
+                                <div class="io-output-box">${expectedOutput}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                recordSubmission("Accepted", result.time, result.memory);
+            } else {
+                statusHeading.className = "result-heading-error";
+                statusHeading.textContent = "Wrong Answer! Output mismatch.";
+                resultsBody.innerHTML = `
+                    <div class="test-case-card" style="border-color: var(--error-red);">
+                        <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
+                            <span><i class="fa-solid fa-circle-xmark"></i> Test Case 0 - FAILED</span>
+                        </div>
+                        <div class="test-case-body">
+                            <div class="io-block">
+                                <label>Your Output (stdout)</label>
+                                <div class="io-output-box" style="color: #f85149;">${stdout || "(Empty output)"}</div>
+                            </div>
+                            <div class="io-block">
+                                <label>Expected Output</label>
+                                <div class="io-output-box" style="color: #3fb950;">${expectedOutput}</div>
+                            </div>
+                        </div>
+                    </div>`;
+                recordSubmission("Wrong Answer", result.time, result.memory);
+            }
+        } else {
+            // Run Code mode or Custom input mode
+            statusHeading.className = "result-heading-success";
+            statusHeading.textContent = useCustom ? "Custom Input Execution" : "Execution Successful";
+            resultsBody.innerHTML = `
+                <div class="test-case-card">
+                    <div class="test-case-card-header">
+                        <span><i class="fa-solid fa-terminal"></i> ${useCustom ? "Custom Stdin Run" : "Sample Run Output"}</span>
+                        <span>Time: ${result.time || 0}s</span>
+                    </div>
+                    <div class="test-case-body" style="grid-template-columns: 1fr;">
+                        <div class="io-block">
+                            <label>Your Output:</label>
+                            <div class="io-output-box">${stdout || "(No output produced)"}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+    } catch (err) {
+        statusHeading.className = "result-heading-error";
+        statusHeading.textContent = "Execution Error";
+        resultsBody.innerHTML = `<div style="color: var(--error-red); padding: 1rem;">${err.message}</div>`;
+    }
+}
+
+// 7. Record Submission in PostgreSQL
+async function recordSubmission(status, time, memory) {
+    const token = localStorage.getItem("javatutor_token");
+    if (!token || !currentProblem) return;
+
+    try {
+        await fetch("http://localhost:8000/api/submissions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                problem_id: currentProblem.id,
+                submitted_code: document.getElementById('codeEditor').value,
+                status: status,
+                execution_time: time || "0.00",
+                memory_used: memory ? String(memory) : "0"
+            })
+        });
+    } catch (e) {
+        console.error("Failed to record submission:", e);
+    }
+}
+
+// 8. AI Chat Communication
 async function sendAIMessage() {
     const input = document.getElementById('aiChatInput');
     const rawMsg = input.value.trim();
     if (!rawMsg) return;
 
-    // Immediately close dropdown
     const dropdown = document.getElementById('slashDropdown');
     if (dropdown) dropdown.style.display = 'none';
 
-    // Verify authentication token
     const token = localStorage.getItem("javatutor_token");
     if (!token) {
-        alert("You must be logged in to chat with the AI Mentor! Please log in via index.html.");
+        alert("Please log in to chat with the AI Mentor!");
         return;
     }
 
     const chatContainer = document.getElementById('aiChatMessages');
 
-    // Append User Bubble
     const userDiv = document.createElement('div');
     userDiv.className = 'user-bubble';
     userDiv.textContent = rawMsg;
     chatContainer.appendChild(userDiv);
     input.value = "";
 
-    // Append AI Loading Indicator
     const aiDiv = document.createElement('div');
     aiDiv.className = 'ai-bubble';
     aiDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing code and logic...';
     chatContainer.appendChild(aiDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    // Detect /problem connector
     const hasProblemConnector = rawMsg.toLowerCase().includes('/problem');
     const problemId = (hasProblemConnector && currentProblem) ? currentProblem.id : null;
-    
-    // Capture user's editor code only if /problem is tagged
     const currentCode = hasProblemConnector ? document.getElementById('codeEditor').value : null;
-    
     const cleanQuery = rawMsg.replace(/\/problem/gi, '').trim() || "Analyze my code and provide pseudocode or edge-case hints.";
 
     try {
@@ -139,8 +420,6 @@ async function sendAIMessage() {
         }
 
         const data = await res.json();
-        
-        // Render formatted Markdown
         if (window.marked && data.response) {
             aiDiv.innerHTML = marked.parse(data.response);
         } else {
@@ -152,13 +431,16 @@ async function sendAIMessage() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// Load problem details from FastAPI
+// 9. Load Problem Data
 async function loadProblem() {
     const urlParams = new URLSearchParams(window.location.search);
     const problemId = urlParams.get('problem_id') || 1;
+    const token = localStorage.getItem("javatutor_token");
+
+    initNavbarSession();
 
     try {
-        const allRes = await fetch("http://localhost:8000/api/problems");
+        const allRes = await fetch(`http://localhost:8000/api/problems${token ? '?token=' + token : ''}`);
         if (allRes.ok) {
             const list = await allRes.json();
             const select = document.getElementById('problemSelect');
@@ -166,7 +448,7 @@ async function loadProblem() {
             list.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
-                opt.textContent = `${p.id}. ${p.title} (${p.difficulty})`;
+                opt.textContent = `${p.id}. ${p.title} (${p.difficulty}) ${p.is_solved ? '✔' : ''}`;
                 if (p.id == problemId) opt.selected = true;
                 select.appendChild(opt);
             });
@@ -222,171 +504,6 @@ function toggleCustomInput() {
 
 function closeResults() {
     document.getElementById('resultsDrawer').style.display = 'none';
-}
-
-function toggleFullScreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => alert(err.message));
-    } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-    }
-}
-
-function safeDecode(base64Str) {
-    if (!base64Str) return "";
-    try {
-        return decodeURIComponent(escape(window.atob(base64Str)));
-    } catch (e) {
-        try { return window.atob(base64Str); } catch (err) { return base64Str; }
-    }
-}
-
-async function executeCode(isSubmit) {
-    if (!currentProblem) return;
-
-    const code = document.getElementById('codeEditor').value;
-    const resultsDrawer = document.getElementById('resultsDrawer');
-    const resultsBody = document.getElementById('resultsBody');
-    const statusHeading = document.getElementById('resultStatusHeading');
-    const useCustom = document.getElementById('customInputToggle').checked;
-
-    const testCase = currentProblem.test_cases && currentProblem.test_cases.length > 0 
-        ? currentProblem.test_cases[0] 
-        : { stdin: "", expected_output: "" };
-
-    const testInput = useCustom ? document.getElementById('customStdin').value : normalizeText(testCase.stdin);
-    const expectedOutput = normalizeText(testCase.expected_output).trim();
-
-    resultsDrawer.style.display = 'flex';
-    statusHeading.className = "result-heading-success";
-    statusHeading.textContent = "Compiling and executing via Judge0...";
-    resultsBody.innerHTML = `<div style="color: var(--text-muted); padding: 1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Sandboxed compilation in progress...</div>`;
-
-    const payload = {
-        source_code: btoa(unescape(encodeURIComponent(code))),
-        language_id: 91, // OpenJDK 17
-        stdin: btoa(unescape(encodeURIComponent(testInput)))
-    };
-
-    if (isSubmit) {
-        payload.expected_output = btoa(unescape(encodeURIComponent(expectedOutput)));
-    }
-
-    try {
-        const response = await fetch("https://ce.judge0.com/submissions?wait=true&base64_encoded=true", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (result.compile_output) {
-            const errText = safeDecode(result.compile_output);
-            statusHeading.className = "result-heading-error";
-            statusHeading.textContent = "Compilation Error";
-            resultsBody.innerHTML = `
-                <div class="test-case-card" style="border-color: var(--error-red);">
-                    <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
-                        <span><i class="fa-solid fa-circle-xmark"></i> Syntax / Compile Error</span>
-                    </div>
-                    <div class="test-case-body" style="grid-template-columns: 1fr;">
-                        <div class="io-block">
-                            <label>Compiler Output:</label>
-                            <div class="io-output-box" style="color: #f85149; white-space: pre-wrap;">${errText}</div>
-                        </div>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        if (result.stderr) {
-            const errText = safeDecode(result.stderr);
-            statusHeading.className = "result-heading-error";
-            statusHeading.textContent = "Runtime Error / Exception";
-            resultsBody.innerHTML = `
-                <div class="test-case-card" style="border-color: var(--error-red);">
-                    <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
-                        <span><i class="fa-solid fa-triangle-exclamation"></i> Runtime Exception</span>
-                    </div>
-                    <div class="test-case-body" style="grid-template-columns: 1fr;">
-                        <div class="io-block">
-                            <label>Stack Trace:</label>
-                            <div class="io-output-box" style="color: #f85149; white-space: pre-wrap;">${errText}</div>
-                        </div>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        const stdout = result.stdout ? safeDecode(result.stdout).trim() : "";
-
-        if (isSubmit) {
-            const isMatch = (stdout === expectedOutput) || (result.status && result.status.id === 3);
-
-            if (isMatch) {
-                statusHeading.className = "result-heading-success";
-                statusHeading.textContent = "Congratulations! You passed all test cases.";
-                resultsBody.innerHTML = `
-                    <div class="test-case-card" style="border-color: var(--success-green);">
-                        <div class="test-case-card-header" style="background: var(--success-bg); color: #3fb950;">
-                            <span><i class="fa-solid fa-circle-check"></i> Sample Test Case 0 - PASSED</span>
-                            <span>Time: ${result.time || 0}s</span>
-                        </div>
-                        <div class="test-case-body">
-                            <div class="io-block">
-                                <label>Your Output (stdout)</label>
-                                <div class="io-output-box">${stdout}</div>
-                            </div>
-                            <div class="io-block">
-                                <label>Expected Output</label>
-                                <div class="io-output-box">${expectedOutput}</div>
-                            </div>
-                        </div>
-                    </div>`;
-            } else {
-                statusHeading.className = "result-heading-error";
-                statusHeading.textContent = "Wrong Answer! Output mismatch.";
-                resultsBody.innerHTML = `
-                    <div class="test-case-card" style="border-color: var(--error-red);">
-                        <div class="test-case-card-header" style="background: var(--error-bg); color: var(--error-red);">
-                            <span><i class="fa-solid fa-circle-xmark"></i> Sample Test Case 0 - FAILED</span>
-                        </div>
-                        <div class="test-case-body">
-                            <div class="io-block">
-                                <label>Your Output (stdout)</label>
-                                <div class="io-output-box" style="color: #f85149;">${stdout || "(Empty output)"}</div>
-                            </div>
-                            <div class="io-block">
-                                <label>Expected Output</label>
-                                <div class="io-output-box" style="color: #3fb950;">${expectedOutput}</div>
-                            </div>
-                        </div>
-                    </div>`;
-            }
-        } else {
-            statusHeading.className = "result-heading-success";
-            statusHeading.textContent = "Execution Successful";
-            resultsBody.innerHTML = `
-                <div class="test-case-card">
-                    <div class="test-case-card-header">
-                        <span><i class="fa-solid fa-terminal"></i> Run Code Output</span>
-                        <span>Time: ${result.time || 0}s</span>
-                    </div>
-                    <div class="test-case-body" style="grid-template-columns: 1fr;">
-                        <div class="io-block">
-                            <label>Output:</label>
-                            <div class="io-output-box">${stdout || "(No output produced)"}</div>
-                        </div>
-                    </div>
-                </div>`;
-        }
-
-    } catch (err) {
-        statusHeading.className = "result-heading-error";
-        statusHeading.textContent = "Execution Error";
-        resultsBody.innerHTML = `<div style="color: var(--error-red); padding: 1rem;">${err.message}</div>`;
-    }
 }
 
 window.onload = loadProblem;
