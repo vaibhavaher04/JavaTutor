@@ -186,7 +186,7 @@ MCA_Project_SEM_3/
 
 2. **Install all required packages**:
    ```powershell
-   pip install -r reuirements.txt
+   pip install -r requirements.txt
    ```
 
 3. **Configure Environment Variables (`backend/.env`)**:
